@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Logo Eyes Follow</title>
+  <style>
+    :root {
+      /* These are tuned for your 1024x1024 image. Adjust if needed. */
+      --pupil-size: 34px;         /* pupil diameter at 1024px base */
+      --max-move: 12px;           /* how far pupils can move at 1024px base */
+
+      /* Eye centers as percentages of the image */
+      --left-eye-x: 41.5%;
+      --left-eye-y: 51.5%;
+      --right-eye-x: 58.5%;
+      --right-eye-y: 51.5%;
+    }
+
+    body {
+      margin: 0;
+      display: grid;
+      place-items: center;
+      height: 100vh;
+      background: transparent;
+    }
+
+    .wrap {
+      width: min(360px, 90vw); /* responsive size in embed */
+      aspect-ratio: 1 / 1;
+      position: relative;
+      user-select: none;
+      touch-action: none;
+    }
+
+    .logo {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    .pupil {
+      position: absolute;
+      width: var(--pupil-size);
+      height: var(--pupil-size);
+      border-radius: 999px;
+      background: #3b1f14; /* dark brown */
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+      will-change: transform, left, top;
+      /* subtle smoothing */
+      transition: transform 40ms linear;
+      opacity: 0.95;
+    }
+
+    /* Position the pupils initially at the eye centers */
+    #pupilL { left: var(--left-eye-x); top: var(--left-eye-y); }
+    #pupilR { left: var(--right-eye-x); top: var(--right-eye-y); }
+  </style>
+</head>
+<body>
+  <div class="wrap" id="wrap">
+    <img class="logo" id="logo" src="YOUR_LOGO_URL.png" alt="Logo" />
+    <div class="pupil" id="pupilL"></div>
+    <div class="pupil" id="pupilR"></div>
+  </div>
+
+  <script>
+    const wrap = document.getElementById("wrap");
+    const pupilL = document.getElementById("pupilL");
+    const pupilR = document.getElementById("pupilR");
+
+    // Read CSS % positions and convert to pixels each time (responsive)
+    function getEyeCenters() {
+      const rect = wrap.getBoundingClientRect();
+      const styles = getComputedStyle(document.documentElement);
+
+      function pctToPx(pct, total) {
+        return (parseFloat(pct) / 100) * total;
+      }
+
+      const leftX = pctToPx(styles.getPropertyValue("--left-eye-x"), rect.width);
+      const leftY = pctToPx(styles.getPropertyValue("--left-eye-y"), rect.height);
+      const rightX = pctToPx(styles.getPropertyValue("--right-eye-x"), rect.width);
+      const rightY = pctToPx(styles.getPropertyValue("--right-eye-y"), rect.height);
+
+      return {
+        rect,
+        L: { x: rect.left + leftX, y: rect.top + leftY },
+        R: { x: rect.left + rightX, y: rect.top + rightY }
+      };
+    }
+
+    function movePupil(pupil, eye, clientX, clientY, maxMovePx) {
+      const dx = clientX - eye.x;
+      const dy = clientY - eye.y;
+      const angle = Math.atan2(dy, dx);
+
+      // clamp movement
+      const dist = Math.min(Math.hypot(dx, dy), 120);
+      const move = (dist / 120) * maxMovePx;
+
+      const mx = Math.cos(angle) * move;
+      const my = Math.sin(angle) * move;
+
+      // pupil positioned via left/top % + translate(-50,-50)
+      // so we only apply movement as translate
+      pupil.style.transform = `translate(calc(-50% + ${mx}px), calc(-50% + ${my}px))`;
+    }
+
+    function handlePointer(e) {
+      const { rect, L, R } = getEyeCenters();
+
+      // Scale movement based on displayed size vs base (1024)
+      const styles = getComputedStyle(document.documentElement);
+      const maxMoveBase = parseFloat(styles.getPropertyValue("--max-move")) || 12;
+      const scale = rect.width / 1024;
+      const maxMovePx = maxMoveBase * scale;
+
+      movePupil(pupilL, L, e.clientX, e.clientY, maxMovePx);
+      movePupil(pupilR, R, e.clientX, e.clientY, maxMovePx);
+    }
+
+    // Support mouse + touch/pen
+    window.addEventListener("pointermove", handlePointer, { passive: true });
+
+    // Reset when leaving
+    wrap.addEventListener("pointerleave", () => {
+      pupilL.style.transform = "translate(-50%, -50%)";
+      pupilR.style.transform = "translate(-50%, -50%)";
+    });
+  </script>
+</body>
+</html>
